@@ -6,10 +6,10 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # ───── НАСТРОЙКИ ─────
-BOT_TOKEN = "TOKEN_ОТ_BOTFATHER"
+BOT_TOKEN = "7941070553:AAEKzSovtE8_c4kQsRMTxB2pdeaymk-mRqw"
 
-ADMINS = [123456789]  # ID админов
-allowed_group_id = None  # разрешённая группа
+ADMINS = [@957028846]  # ID админов
+allowed_group_id = 2691111688  # разрешённая группа
 
 # антифлуд
 FLOOD_LIMIT = 5
@@ -196,3 +196,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
