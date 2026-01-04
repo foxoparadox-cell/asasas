@@ -4,12 +4,15 @@ import random
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from threading import Thread
+from flask import Flask
+import os
 
 # ───── НАСТРОЙКИ ─────
-BOT_TOKEN = "7941070553:AAEKzSovtE8_c4kQsRMTxB2pdeaymk-mRqw"
+BOT_TOKEN = os.getenv("BOT_TOKEN")  # В Replit добавить в Secrets
 
-ADMINS = [@957028846]  # ID админов
-allowed_group_id = 2691111688  # разрешённая группа
+ADMINS = [957028846]  # ID админов
+allowed_groups = []  # список разрешённых групп
 
 # антифлуд
 FLOOD_LIMIT = 5
@@ -23,22 +26,22 @@ REACTIONS = ["👍", "😂", "🔥", "😎", "🤖", "💯", "👀"]
 # ───── 30 ТРИГГЕРОВ С РАНДОМОМ ─────
 TRIGGERS = {
     "Фокс": ["давай гуляй", "ало ало", "чеши отсюда"],
-    "как дела": ["все плохо", "я на похоронах, хороню твоего папу", "плачу и грущу"],
-    "бот": ["я быстрее твоего ириса", "нахуй иди", "чё надо"],
-    "помоги": ["помощи здесь нет", "напиши дами или фоксу что-ли"],
-    "спам": ["я твоего отца спермой заспамил"],
+    "как дела": ["все плохо", "я на похоронах, грущу", "плачу и грущу"],
+    "бот": ["я быстрее твоего ириса", "иди нахуй", "чё надо"],
+    "помоги": ["помощи здесь нет", "напиши админам"],
+    "спам": ["я твоего отца заспамил"],
     "админ": ["хуй тебе"],
     "работаешь": ["я вот 24/7 без выходных"],
     "кто ты": ["я лично твой ебырь"],
-    "правила": ["чувак всем похуй на правила, их владелец даже не знает"],
-    "ссылка": ["хуесос ссылки запрещены"],
-    "докс": ["я задоксил своим членом твою парализованную бабушку"],
+    "правила": ["чувак всем похуй на правила"],
+    "ссылка": ["ссылки запрещены"],
+    "докс": ["я задоксил твою бабушку"],
     "мут": ["в хуй твой мут"],
     "бан": ["в хуй твой бан"],
     "чат": ["спасите помогите, я в рабстве"],
-    "группа": ["это ниихуя не защищённая группа"],
+    "группа": ["это не защищённая группа"],
     "мама": ["у тебя мать сдохла"],
-    "лол": ["ахахахаха ржака мем 2026", "посмеялся от души товарищ, не шути больше"],
+    "лол": ["ахахаха ржака мем 2026", "посмеялся от души, не шути больше"],
     "б": ["лудики ебучие блять"],
     "ок": ["👌", "Принято"],
     "да": ["пизда"],
@@ -47,7 +50,6 @@ TRIGGERS = {
     "почему": ["по качеришке"],
     "зачем": ["так надо"],
     "ботик": ["твоя мать шлюха"],
-    "помоги": ["напиши админам"],
     "шлюха": ["твоя мать"],
     "гуляй": ["сорри не могу, твой отец мешает"],
     "admin": ["Admin mode on"],
@@ -63,6 +65,7 @@ def admin_menu():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="➕ Разрешить группу", callback_data="allow_group")],
         [InlineKeyboardButton(text="➖ Запретить группу", callback_data="disallow_group")],
+        [InlineKeyboardButton(text="📋 Показать все группы", callback_data="list_groups")],
         [InlineKeyboardButton(text="📊 Статус", callback_data="status")]
     ])
 
@@ -79,17 +82,13 @@ def is_flood(user_id):
     flood[user_id].append(now)
     return len(flood[user_id]) > FLOOD_LIMIT
 
-# ───── ОСНОВНОЙ ОБРАБОТЧИК ГРУПП ─────
+# ───── ОБРАБОТЧИК ГРУПП ─────
 @dp.message(F.chat.type.in_({"group", "supergroup"}))
 async def group_guard(message: Message):
-    global allowed_group_id
-
-    # доступ к группе
-    if allowed_group_id is None or message.chat.id != allowed_group_id:
+    if message.chat.id not in allowed_groups:
         await bot.leave_chat(message.chat.id)
         return
 
-    # игнор сообщений от ботов
     if message.from_user.is_bot:
         return
 
@@ -114,7 +113,7 @@ async def group_guard(message: Message):
         )
         return
 
-    # триггеры (reply-сообщения ТЕПЕРЬ ОБРАБАТЫВАЮТСЯ)
+    # триггеры
     if message.text:
         text = message.text.lower()
         for trigger, responses in TRIGGERS.items():
@@ -157,25 +156,37 @@ async def about(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "allow_group")
 async def allow_group(callback: CallbackQuery):
-    global allowed_group_id
     if callback.from_user.id not in ADMINS:
         return
-    allowed_group_id = callback.message.chat.id
+    chat_id = callback.message.chat.id
+    if chat_id not in allowed_groups:
+        allowed_groups.append(chat_id)
     await callback.message.edit_text(
-        f"✅ **Группа разрешена**\nID: `{allowed_group_id}`",
+        f"✅ **Группа разрешена**\nID: `{chat_id}`",
         parse_mode="Markdown"
     )
 
 @dp.callback_query(F.data == "disallow_group")
 async def disallow_group(callback: CallbackQuery):
-    global allowed_group_id
     if callback.from_user.id not in ADMINS:
         return
-    allowed_group_id = None
+    chat_id = callback.message.chat.id
+    if chat_id in allowed_groups:
+        allowed_groups.remove(chat_id)
     await callback.message.edit_text(
-        "❌ **Доступ ко всем группам отключён**",
+        f"❌ **Группа удалена из разрешённых**\nID: `{chat_id}`",
         parse_mode="Markdown"
     )
+
+@dp.callback_query(F.data == "list_groups")
+async def list_groups(callback: CallbackQuery):
+    if callback.from_user.id not in ADMINS:
+        return
+    if allowed_groups:
+        text = "📋 **Разрешённые группы:**\n" + "\n".join([f"• {g}" for g in allowed_groups])
+    else:
+        text = "📋 **Нет разрешённых групп**"
+    await callback.message.edit_text(text, parse_mode="Markdown")
 
 @dp.callback_query(F.data == "status")
 async def status(callback: CallbackQuery):
@@ -183,17 +194,31 @@ async def status(callback: CallbackQuery):
         return
     await callback.message.edit_text(
         f"📊 **Статус бота**\n\n"
-        f"Группа: `{allowed_group_id}`\n"
+        f"Разрешённые группы: {allowed_groups}\n"
         f"Антифлуд: ✅\n"
         f"Триггеров: {len(TRIGGERS)}\n"
         f"Реакции: ✅",
         parse_mode="Markdown"
     )
 
+# ───── KEEP ALIVE (для Replit 24/7) ─────
+app = Flask("")
+
+@app.route("/")
+def home():
+    return "Bot is running 24/7!"
+
+def run():
+    app.run(host="0.0.0.0", port=3000)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
 # ───── ЗАПУСК ─────
 async def main():
+    keep_alive()
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
-
