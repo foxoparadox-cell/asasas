@@ -11,8 +11,8 @@ import os
 # ───── НАСТРОЙКИ ─────
 BOT_TOKEN = os.getenv("BOT_TOKEN")  # В Replit добавить в Secrets
 
-ADMINS = [957028846]  # ID админов
-allowed_groups = []  # список разрешённых групп
+ADMINS = [957028846, 2691111688]  # ID админов
+allowed_groups = [2691111688]  # список разрешённых групп
 
 # антифлуд
 FLOOD_LIMIT = 5
@@ -222,3 +222,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
